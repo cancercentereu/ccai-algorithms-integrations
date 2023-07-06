@@ -110,7 +110,7 @@ templates = Jinja2Templates(directory="templates")
 
 
 @router.get('/')
-def index(request: Request):
+async def index(request: Request):
     slide_url = router.url_path_for('dzi', slug=SLIDE_NAME)
     associated_urls = {
         name: router.url_path_for('dzi', slug=slugify(name))
@@ -130,7 +130,7 @@ def index(request: Request):
 
 
 @router.get('/{slug:str}.dzi')
-def dzi(slug: str):
+async def dzi(slug: str):
     format = slide_data.config['DEEPZOOM_FORMAT']
     try:
         resp = Response(content=slide_data.slides[slug].get_dzi(format), media_type='application/xml')
@@ -141,10 +141,10 @@ def dzi(slug: str):
 
 
 @router.get('/{slug:str}_files/{level:str}/{x:str}_{y:str}.{format:str}')
-def tile(slug: str, level: int, col: int, row: int, format: str):
+async def tile(slug: str, level: int, x: int, y: int, format: str):
     level = int(level)
-    col = int(col)
-    row = int(row)
+    col = int(x)
+    row = int(y)
     format = format.lower()
     if format != 'jpeg' and format != 'png':
         # Not supported by Deep Zoom

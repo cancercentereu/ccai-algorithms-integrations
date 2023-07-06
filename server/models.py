@@ -18,21 +18,21 @@ class StatusModel(BaseModel):
 
 
 def handle_completed(status: StatusModel, memory):
-    if 'result' not in status:
+    if status.result is None:
         raise HTTPException(400, 'Missing field result')
     print(f'Algorithm run completed with result: {status.result}')
     memory['status'] = 'completed'
 
 
 def handle_in_progress(status: StatusModel, memory):
-    if 'progress' not in status:
+    if status.progress is None:
         raise HTTPException(400, 'Missing field progress')
     memory['progress'] = status.progress
     print(f'Algorithm run progress: {status.progress}')
 
 
 def handle_error(status: StatusModel, memory):
-    if 'error' not in status:
+    if status.error is None:
         raise HTTPException(400, 'Missing field error')
     memory['status'] = 'error'
     print(f'Algorithm run failed with error: {status.error}. Exiting...')

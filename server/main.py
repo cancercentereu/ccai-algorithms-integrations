@@ -5,6 +5,7 @@ import uvicorn
 import tiles_router
 from fastapi.staticfiles import StaticFiles
 from urllib.parse import urljoin
+import requests
 
 memory = {}
 
@@ -21,12 +22,8 @@ async def run_algorithm(request: Request):
                                                       level='{level}', x='{x}', y='{y}',
                                                       format='jpeg')
     return_url = urljoin(url_base_part, app.url_path_for('process_status', id=id))
-    memory[id] = {
-        'status': 'in_progress',
-        'progress': 0
-    }
 
-    return (
+    data = (
         AlgorithmRun(
             image=AlgorithmRunImage(
                 tiles_url=urljoin(url_base_part, url_tiles_part),
@@ -42,9 +39,23 @@ async def run_algorithm(request: Request):
         )
     )
 
+    response = requests.post('http://127.0.0.1:12346/run_algorithm', json=data.dict())
+
+    if response.status_code != 200:
+        response.raise_for_status
+
+    print(f'Started processing algorithm run with id: {id}')
+    memory[id] = {
+        'status': 'in_progress',
+        'progress': 0
+    }
+
+    return data
+
 
 @app.post('/integrations/algorithm/{id:str}/status/')
-def process_status(id: str, status: StatusModel):
+async def process_status(id: str, status: StatusModel):
+    print(f'{id=}')
     if id not in memory:
         raise HTTPException(400, f'Algorithm run with ID: {id} was not started')
     if memory[id]['status'] in ['error', 'completed']:
@@ -53,11 +64,22 @@ def process_status(id: str, status: StatusModel):
 
 
 def main():
-    uvicorn.run("main:app",
-                host='0.0.0.0',
-                port=12345,
-                reload=True,
-                )
+    import logging
+    # uvicorn.run("main:app",
+    #             host='0.0.0.0',
+    #             port=12345,
+    #             reload=True,
+    #             log_level="trace"
+    #             )
+
+    uvicorn_config = uvicorn.Config(app, host="0.0.0.0", port=12345, log_level="debug")
+
+    logger = logging.getLogger("uvicorn.access")
+    logger.propagate = False
+    logger.addHandler(logging.StreamHandler())
+    logger.setLevel(logging.DEBUG)
+
+    uvicorn.Server(uvicorn_config).run()
 
 
 if __name__ == '__main__':
