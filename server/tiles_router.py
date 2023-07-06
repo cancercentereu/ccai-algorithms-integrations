@@ -1,4 +1,6 @@
 #!/usr/bin/env python
+
+# Based on https://github.com/openslide/openslide-python/blob/main/examples/deepzoom/deepzoom_server.py
 #
 # deepzoom_server - Example web application for serving whole-slide images
 #
@@ -16,7 +18,6 @@
 # You should have received a copy of the GNU Lesser General Public License
 # along with this library; if not, write to the Free Software Foundation,
 # Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-#
 
 from io import BytesIO
 import os
@@ -42,11 +43,12 @@ else:
 
 from openslide import ImageSlide, open_slide
 from openslide.deepzoom import DeepZoomGenerator
+from fastapi import APIRouter, HTTPException, Request, Response
+from fastapi.templating import Jinja2Templates
+from dependencies import arguments
 
 SLIDE_NAME = 'slide'
 
-from fastapi import APIRouter, HTTPException, Request, Response
-import sys
 
 class Holder:
     pass
@@ -57,9 +59,10 @@ def slugify(text):
     return re.sub('[^a-z0-9]+', '-', text)
 
 
-def __init_slide_data(config=None, config_file=None):
+def __init_slide_data():
+    args = arguments()
     slide_data = Holder()
-    config = {'DEEPZOOM_SLIDE': sys.argv[1]}
+    config = {'DEEPZOOM_SLIDE': args.image_path}
     config.update({
         'DEEPZOOM_FORMAT': 'jpeg',
         'DEEPZOOM_TILE_SIZE': 512,
@@ -87,7 +90,8 @@ def __init_slide_data(config=None, config_file=None):
     slide_data.height = slide_data.slides[SLIDE_NAME].level_dimensions[-1][1]
     slide_data.tile_size = slide_data.config['DEEPZOOM_TILE_SIZE']
     slide_data.objective_magnification = float(slide_data.slide_properties['openslide.objective-power'])
-    slide_data.microns_per_pixel = (float(slide_data.slide_properties['openslide.mpp-x']) + float(slide_data.slide_properties['openslide.mpp-y'])) / 2
+    slide_data.microns_per_pixel = (float(slide_data.slide_properties['openslide.mpp-x']) +
+                                    float(slide_data.slide_properties['openslide.mpp-y'])) / 2
 
     for name, image in slide.associated_images.items():
         slide_data.associated_images.append(name)
@@ -105,7 +109,6 @@ def __init_slide_data(config=None, config_file=None):
 slide_data = __init_slide_data()
 
 router = APIRouter()
-from fastapi.templating import Jinja2Templates
 templates = Jinja2Templates(directory="templates")
 
 
@@ -161,6 +164,3 @@ async def tile(slug: str, level: int, x: int, y: int, format: str):
     tile.save(buf, format, quality=slide_data.config['DEEPZOOM_TILE_QUALITY'])
     resp = Response(content=buf.getvalue(), media_type=f"image/{format}")
     return resp
-
-
-

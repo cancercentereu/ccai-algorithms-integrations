@@ -1,8 +1,9 @@
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks
 from pydantic import BaseModel
 from typing import Dict, Any
 from urllib.parse import urljoin
 import requests
+import argparse
 import uvicorn
 import time
 
@@ -31,8 +32,9 @@ class StatusModel(BaseModel):
     error: str | None
     result: Dict[str, Any] | None
 
-    
+
 def process_image(algorithm_run: AlgorithmRun):
+    time.sleep(0.5) # Required when using test-server to give it time to start
     try:
         for i in range(10):
             tile_url = algorithm_run.image.tiles_url.format(
@@ -41,9 +43,7 @@ def process_image(algorithm_run: AlgorithmRun):
                 y=i
             )
             response = requests.get(tile_url, timeout=10)
-            if response.status_code != 200:
-                print(response.content)
-                response.raise_for_status()
+            response.raise_for_status()
 
         response = requests.post(algorithm_run.return_url, data=StatusModel(
             status='in_progress',
@@ -53,8 +53,8 @@ def process_image(algorithm_run: AlgorithmRun):
 
         for i in range(2, 11):
             response = requests.post(algorithm_run.return_url, data=StatusModel(
-                status='in_progress',
-                # progress=i * 10
+                status='error',
+                progress=i * 10
             ).json())
 
             response.raise_for_status()
@@ -78,6 +78,8 @@ def process_image(algorithm_run: AlgorithmRun):
         response.raise_for_status()
     except requests.HTTPError as e:
         print(f"HTTP Error: {e}\nMessage: {response.content.decode('utf-8')}")
+    except requests.exceptions.ConnectionError as e:
+        print(str(e))
 
 
 @app.post('/run_algorithm')
@@ -87,12 +89,18 @@ async def run_algorithm(algorithm_run: AlgorithmRun, background_tasks: Backgroun
 
 
 def main():
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        '--port',
+        help='Port to run this server',
+        default=12346,
+        type=int
+    )
+
+    args = parser.parse_args()
     uvicorn.run("main:app",
                 host='0.0.0.0',
-                port=12346,
-                reload=True,
-                log_level="debug"
-                )
+                port=args.port)
 
 
 if __name__ == '__main__':
