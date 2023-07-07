@@ -20,11 +20,11 @@ class StatusModel(BaseModel):
 
 
 class AlgorithmRunImage(BaseModel):
-    tiles_url: str
     levels: int
     width: int
     height: int
     tile_size: int
+    tiles_url: str
     objective_magnification: float
     microns_per_pixel: float
 

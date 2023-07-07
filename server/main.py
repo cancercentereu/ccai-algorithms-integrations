@@ -24,11 +24,11 @@ class BackgroundRunner:
         data = (
             AlgorithmRun(
                 image=AlgorithmRunImage(
-                    tiles_url=urljoin(url_base_part, url_tiles_part),
                     levels=tiles_router.slide_data.level_count,
                     width=tiles_router.slide_data.width,
                     height=tiles_router.slide_data.height,
                     tile_size=tiles_router.slide_data.tile_size,
+                    tiles_url=urljoin(url_base_part, url_tiles_part),
                     objective_magnification=tiles_router.slide_data.objective_magnification,
                     microns_per_pixel=tiles_router.slide_data.microns_per_pixel
                 ),
@@ -41,7 +41,7 @@ class BackgroundRunner:
 
         if args.auth is not None:
             headers['Authorization'] = args.auth
-
+        import json
         response = requests.post(args.tpa_url, json=data.dict())
         response.raise_for_status()
 
