@@ -1,11 +1,14 @@
 from fastapi import FastAPI, BackgroundTasks
 from pydantic import BaseModel
 from typing import Dict, Any
-from urllib.parse import urljoin
 import requests
 import argparse
 import uvicorn
+import random
 import time
+import os
+from pathlib import Path
+from math import ceil
 
 app = FastAPI()
 
@@ -34,37 +37,73 @@ class StatusModel(BaseModel):
 
 
 def process_image(algorithm_run: AlgorithmRun):
-    time.sleep(0.5) # Required when using test-server to give it time to start
+    '''
+    This example will download tiles into directory 'tiles', from image downscaled 16 times notifiying in meantime
+    CC.AI about progress, after that it will randomly send error ending algorithm run or send
+    further progress updates and result at the end
+    '''
     try:
-        for i in range(10):
-            tile_url = algorithm_run.image.tiles_url.format(
-                level=algorithm_run.image.levels - 1,
-                x=0,
-                y=i
-            )
-            response = requests.get(tile_url, timeout=10)
+        # Assure that folder exists, if not create
+        folder_path = Path('./tiles')
+        if not folder_path.exists():
+            os.mkdir(folder_path)
+
+        times_downscaled = 4
+        # Level numbers start at 0
+        level = algorithm_run.image.levels - times_downscaled - 1
+
+        # Moving one level down corresponds to downscaling image 2 times
+        tiles_x = ceil((algorithm_run.image.width // (2 ** times_downscaled)) /
+                       algorithm_run.image.tile_size)
+        tiles_y = ceil((algorithm_run.image.height // (2 ** times_downscaled)) /
+                       algorithm_run.image.tile_size)
+
+        for y in range(tiles_y):
+            for x in range(tiles_x):
+                tile_url = algorithm_run.image.tiles_url.format(
+                    level=level,
+                    x=x,
+                    y=y
+                )
+                response = requests.get(tile_url)
+                response.raise_for_status()
+                with open(folder_path.joinpath(f'tile_{y}_{x}.jpeg'), 'wb') as tile_file:
+                    tile_file.write(response.content)
+
+            # Downloading tiles will take 30% of whole algorithm run time
+            # We notify CC.AI about progress after each downloaded row
+            response = requests.post(algorithm_run.return_url, data=StatusModel(
+                status='in_progress',
+                progress=round(((y + 1) / tiles_y) * 30)
+            ).json())
             response.raise_for_status()
 
-        response = requests.post(algorithm_run.return_url, data=StatusModel(
-            status='in_progress',
-            progress=10
-        ).json())
-        response.raise_for_status()
+        # We can also notify about error that occured while running algorithm
+        if random.randint(0, 100) < 50:
+            response = requests.post(algorithm_run.return_url, data=StatusModel(
+                status='error',
+                error='Random error occured'
+            ).json())
+            response.raise_for_status()
+            return
 
-        for i in range(2, 11):
+        # Notify CC.AI about remaining progress in running algorithm
+        for i in range(4, 11):
             response = requests.post(algorithm_run.return_url, data=StatusModel(
                 status='in_progress',
                 progress=i * 10
             ).json())
 
             response.raise_for_status()
-            time.sleep(1)
 
+        # Notify CC.AI that algorithm run completed successfully
         response = requests.post(algorithm_run.return_url, data=StatusModel(
                 status='completed',
                 result={
                     'regions_of_interest': [
                         {
+                            # We want result to be in original image dimensions
+                            # even if it is processed downscaled
                             'x': algorithm_run.image.width // 2,
                             'y': algorithm_run.image.height // 2,
                             'w': 100,
@@ -78,16 +117,14 @@ def process_image(algorithm_run: AlgorithmRun):
         response.raise_for_status()
     except requests.HTTPError as e:
         print(f"HTTP Error: {e}\nMessage: {response.content.decode('utf-8')}")
-    except requests.exceptions.ConnectionError as e:
-        if 'Connection aborted' in str(e):
-            return
-        print(str(e))
 
 
 @app.post('/run_algorithm')
 async def run_algorithm(algorithm_run: AlgorithmRun, background_tasks: BackgroundTasks):
     background_tasks.add_task(process_image, algorithm_run)
-    return 'Ok'
+
+    # By default response will have status code 200
+    # so CC.AI will know that TPA will process request
 
 
 def main():

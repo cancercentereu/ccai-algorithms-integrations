@@ -35,34 +35,35 @@ class AlgorithmRun(BaseModel):
     id: str
 
 
-def handle_completed(status: StatusModel, memory):
+def handle_completed(status: StatusModel, memory) -> bool:
     if status.result is None:
         raise HTTPException(400, 'Missing field result')
     memory['status'] = 'completed'
     print(f'Algorithm run completed with result: {status.result}')
-    os.kill(os.getpid(), 9)
+    return True
 
 
-def handle_in_progress(status: StatusModel, memory):
+def handle_in_progress(status: StatusModel, memory) -> bool:
     if status.progress is None:
         raise HTTPException(400, 'Missing field progress')
     memory['progress'] = status.progress
     print(f'Algorithm run progress: {status.progress}')
+    return False
 
 
-def handle_error(status: StatusModel, memory):
+def handle_error(status: StatusModel, memory) -> bool:
     if status.error is None:
         raise HTTPException(400, 'Missing field error')
     memory['status'] = 'error'
-    print(f'Algorithm run failed with error: {status.error}. Exiting...')
-    os.kill(os.getpid(), 9)
+    print(f'Algorithm run failed with error: {status.error}')
+    return True
 
 
-def handle_wrong_status(status: StatusModel, memory):
-    print(f'Invalid status: {status.status}')
+def handle_wrong_status(status: StatusModel, memory) -> bool:
+    raise HTTPException(400, f'Invalid status {status.status}')
 
 
-STATUS_TO_HANDLER: defaultdict[str, Callable[[StatusModel, dict], None]] = defaultdict(
+STATUS_TO_HANDLER: defaultdict[str, Callable[[StatusModel, dict], bool]] = defaultdict(
     lambda: handle_wrong_status,
     {
         'in_progress': handle_in_progress,
