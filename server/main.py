@@ -41,7 +41,6 @@ class BackgroundRunner:
 
         if args.auth is not None:
             headers['Authorization'] = args.auth
-        import json
         response = requests.post(args.tpa_url, json=data.dict())
         response.raise_for_status()
 
