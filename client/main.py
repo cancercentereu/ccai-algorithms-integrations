@@ -53,7 +53,7 @@ def process_image(algorithm_run: AlgorithmRun):
 
         for i in range(2, 11):
             response = requests.post(algorithm_run.return_url, data=StatusModel(
-                status='error',
+                status='in_progress',
                 progress=i * 10
             ).json())
 
@@ -79,6 +79,8 @@ def process_image(algorithm_run: AlgorithmRun):
     except requests.HTTPError as e:
         print(f"HTTP Error: {e}\nMessage: {response.content.decode('utf-8')}")
     except requests.exceptions.ConnectionError as e:
+        if 'Connection aborted' in str(e):
+            return
         print(str(e))
 
 

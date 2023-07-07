@@ -43,8 +43,8 @@ async def startup_event():
 
     headers = {}
 
-    if args.authorization is not None:
-        headers['Authorization'] = args.authorization
+    if args.auth is not None:
+        headers['Authorization'] = args.auth
 
     response = requests.post(args.tpa_url, json=data.dict())
     response.raise_for_status()

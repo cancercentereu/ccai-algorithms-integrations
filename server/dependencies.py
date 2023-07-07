@@ -21,7 +21,7 @@ def arguments():
 
     parser.add_argument(
         '--auth',
-        help='Authorization value that will be sent in Authorization header',
+        help='If specified will be sent in "Authorization" header',
         default=None,
         type=str
     )
