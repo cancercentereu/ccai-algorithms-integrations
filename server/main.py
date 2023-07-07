@@ -76,8 +76,8 @@ async def process_status(id: str, status: StatusModel, background_tasks: Backgro
         if memory[id]['status'] in ['error', 'completed']:
             raise HTTPException(400, f'Algorithm run with ID: {id} is already\
                 finished with status: {memory[id]["status"]}')
-        should_kill = STATUS_TO_HANDLER[status.status](status, memory[id])
-        if should_kill:
+        STATUS_TO_HANDLER[status.status](status, memory[id])
+        if status.status in ['error', 'completed']:
             background_tasks.add_task(kill_server)
     except HTTPException as e:
         print(e)
