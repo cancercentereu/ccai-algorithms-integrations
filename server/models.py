@@ -1,9 +1,7 @@
 from pydantic import BaseModel
-from typing import Dict, Any, Callable
+from typing import Dict, Any, Callable, Union
 from collections import defaultdict
 from fastapi import HTTPException
-import os
-
 
 ALLOWED_STATUSES = [
     'in_progress',
@@ -14,9 +12,9 @@ ALLOWED_STATUSES = [
 
 class StatusModel(BaseModel):
     status: str
-    progress: int | None
-    error: str | None
-    result: Dict[str, Any] | None
+    progress: Union[int, None] = None
+    error: Union[str, None] = None
+    result: Union[Dict[str, Any], None] = None
 
 
 class AlgorithmRunImage(BaseModel):

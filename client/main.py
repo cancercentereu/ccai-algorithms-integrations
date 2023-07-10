@@ -1,11 +1,10 @@
 from fastapi import FastAPI, BackgroundTasks
 from pydantic import BaseModel
-from typing import Dict, Any
+from typing import Dict, Any, Union
 import requests
 import argparse
 import uvicorn
 import random
-import time
 import os
 from pathlib import Path
 from math import ceil
@@ -31,9 +30,9 @@ class AlgorithmRun(BaseModel):
 
 class StatusModel(BaseModel):
     status: str
-    progress: int | None
-    error: str | None
-    result: Dict[str, Any] | None
+    progress: Union[int, None] = None
+    error: Union[str, None] = None
+    result: Union[Dict[str, Any], None] = None
 
 
 def process_image(algorithm_run: AlgorithmRun):
@@ -48,7 +47,7 @@ def process_image(algorithm_run: AlgorithmRun):
         if not folder_path.exists():
             os.mkdir(folder_path)
 
-        times_downscaled = 4
+        times_downscaled = 3
         # Level numbers start at 0
         level = algorithm_run.image.levels - times_downscaled - 1
 
@@ -75,7 +74,7 @@ def process_image(algorithm_run: AlgorithmRun):
             response = requests.post(algorithm_run.return_url, data=StatusModel(
                 status='in_progress',
                 progress=round(((y + 1) / tiles_y) * 30)
-            ).json())
+            ).model_dump_json())
             response.raise_for_status()
 
         # We can also notify about error that occured while running algorithm
@@ -83,7 +82,8 @@ def process_image(algorithm_run: AlgorithmRun):
             response = requests.post(algorithm_run.return_url, data=StatusModel(
                 status='error',
                 error='Random error occured'
-            ).json())
+            ).model_dump_json())
+
             response.raise_for_status()
             return
 
@@ -92,7 +92,7 @@ def process_image(algorithm_run: AlgorithmRun):
             response = requests.post(algorithm_run.return_url, data=StatusModel(
                 status='in_progress',
                 progress=i * 10
-            ).json())
+            ).model_dump_json())
 
             response.raise_for_status()
 
@@ -113,7 +113,7 @@ def process_image(algorithm_run: AlgorithmRun):
                         }
                     ]
                 }
-            ).json())
+            ).model_dump_json())
         response.raise_for_status()
     except requests.HTTPError as e:
         print(f"HTTP Error: {e}\nMessage: {response.content.decode('utf-8')}")
